@@ -14,7 +14,150 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      configuracoes: {
+        Row: {
+          cadencia: Database["public"]["Enums"]["cadencia"]
+          id: string
+          quantidade: number
+          updated_at: string
+          user_id: string
+          webhook_url: string | null
+        }
+        Insert: {
+          cadencia?: Database["public"]["Enums"]["cadencia"]
+          id?: string
+          quantidade?: number
+          updated_at?: string
+          user_id: string
+          webhook_url?: string | null
+        }
+        Update: {
+          cadencia?: Database["public"]["Enums"]["cadencia"]
+          id?: string
+          quantidade?: number
+          updated_at?: string
+          user_id?: string
+          webhook_url?: string | null
+        }
+        Relationships: []
+      }
+      notas: {
+        Row: {
+          atividade_comentario: string
+          atividade_nota: number
+          created_at: string
+          experiencia_comentario: string
+          experiencia_nota: number
+          headline_comentario: string
+          headline_nota: number
+          id: string
+          nota_geral: number
+          resumo_comentario: string
+          resumo_nota: number
+          user_id: string
+        }
+        Insert: {
+          atividade_comentario: string
+          atividade_nota: number
+          created_at?: string
+          experiencia_comentario: string
+          experiencia_nota: number
+          headline_comentario: string
+          headline_nota: number
+          id?: string
+          nota_geral: number
+          resumo_comentario: string
+          resumo_nota: number
+          user_id: string
+        }
+        Update: {
+          atividade_comentario?: string
+          atividade_nota?: number
+          created_at?: string
+          experiencia_comentario?: string
+          experiencia_nota?: number
+          headline_comentario?: string
+          headline_nota?: number
+          id?: string
+          nota_geral?: number
+          resumo_comentario?: string
+          resumo_nota?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      perfis_contexto: {
+        Row: {
+          concluido_em: string | null
+          created_at: string
+          id: string
+          respostas: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          concluido_em?: string | null
+          created_at?: string
+          id?: string
+          respostas?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          concluido_em?: string | null
+          created_at?: string
+          id?: string
+          respostas?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      posts: {
+        Row: {
+          corpo: string
+          created_at: string
+          cta: string
+          data_agendamento: string | null
+          formato: Database["public"]["Enums"]["post_formato"]
+          hook: string
+          id: string
+          status: Database["public"]["Enums"]["post_status"]
+          tema: string
+          updated_at: string
+          user_id: string
+          visual_sugestao: string | null
+        }
+        Insert: {
+          corpo: string
+          created_at?: string
+          cta: string
+          data_agendamento?: string | null
+          formato?: Database["public"]["Enums"]["post_formato"]
+          hook: string
+          id?: string
+          status?: Database["public"]["Enums"]["post_status"]
+          tema: string
+          updated_at?: string
+          user_id: string
+          visual_sugestao?: string | null
+        }
+        Update: {
+          corpo?: string
+          created_at?: string
+          cta?: string
+          data_agendamento?: string | null
+          formato?: Database["public"]["Enums"]["post_formato"]
+          hook?: string
+          id?: string
+          status?: Database["public"]["Enums"]["post_status"]
+          tema?: string
+          updated_at?: string
+          user_id?: string
+          visual_sugestao?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +166,13 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      cadencia: "semanal" | "quinzenal" | "mensal" | "personalizado"
+      post_formato: "texto" | "carrossel" | "imagem"
+      post_status:
+        | "pendente_revisao"
+        | "aprovado"
+        | "rejeitado"
+        | "aprovado_editado"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +299,15 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      cadencia: ["semanal", "quinzenal", "mensal", "personalizado"],
+      post_formato: ["texto", "carrossel", "imagem"],
+      post_status: [
+        "pendente_revisao",
+        "aprovado",
+        "rejeitado",
+        "aprovado_editado",
+      ],
+    },
   },
 } as const
