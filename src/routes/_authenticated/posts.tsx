@@ -87,7 +87,11 @@ function PostsPage() {
   async function confirmarAprovar() {
     if (!aprovandoId || !dataEscolhida) return;
     const novoStatus: Post["status"] = aprovandoEditado ? "aprovado_editado" : "aprovado";
-    const payload: Record<string, unknown> = {
+    const payload: {
+      status: Post["status"];
+      data_agendamento: string;
+      corpo?: string;
+    } = {
       status: novoStatus,
       data_agendamento: dataEscolhida.toISOString().slice(0, 10),
     };
