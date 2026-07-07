@@ -17,6 +17,7 @@ import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authentic
 import { Route as AuthenticatedDiagnosticoRouteImport } from './routes/_authenticated/diagnostico'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedCalendarioRouteImport } from './routes/_authenticated/calendario'
+import { Route as ApiPublicPostsCallbackRouteImport } from './routes/api/public/posts-callback'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -59,6 +60,11 @@ const AuthenticatedCalendarioRoute = AuthenticatedCalendarioRouteImport.update({
   path: '/calendario',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiPublicPostsCallbackRoute = ApiPublicPostsCallbackRouteImport.update({
+  id: '/api/public/posts-callback',
+  path: '/api/public/posts-callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -68,6 +74,7 @@ export interface FileRoutesByFullPath {
   '/diagnostico': typeof AuthenticatedDiagnosticoRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/posts': typeof AuthenticatedPostsRoute
+  '/api/public/posts-callback': typeof ApiPublicPostsCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -77,6 +84,7 @@ export interface FileRoutesByTo {
   '/diagnostico': typeof AuthenticatedDiagnosticoRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/posts': typeof AuthenticatedPostsRoute
+  '/api/public/posts-callback': typeof ApiPublicPostsCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -88,6 +96,7 @@ export interface FileRoutesById {
   '/_authenticated/diagnostico': typeof AuthenticatedDiagnosticoRoute
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/posts': typeof AuthenticatedPostsRoute
+  '/api/public/posts-callback': typeof ApiPublicPostsCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -99,6 +108,7 @@ export interface FileRouteTypes {
     | '/diagnostico'
     | '/onboarding'
     | '/posts'
+    | '/api/public/posts-callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -108,6 +118,7 @@ export interface FileRouteTypes {
     | '/diagnostico'
     | '/onboarding'
     | '/posts'
+    | '/api/public/posts-callback'
   id:
     | '__root__'
     | '/'
@@ -118,12 +129,14 @@ export interface FileRouteTypes {
     | '/_authenticated/diagnostico'
     | '/_authenticated/onboarding'
     | '/_authenticated/posts'
+    | '/api/public/posts-callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicPostsCallbackRoute: typeof ApiPublicPostsCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -184,6 +197,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCalendarioRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/posts-callback': {
+      id: '/api/public/posts-callback'
+      path: '/api/public/posts-callback'
+      fullPath: '/api/public/posts-callback'
+      preLoaderRoute: typeof ApiPublicPostsCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -210,17 +230,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicPostsCallbackRoute: ApiPublicPostsCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
