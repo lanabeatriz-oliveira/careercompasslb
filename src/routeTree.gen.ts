@@ -13,6 +13,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
+import { Route as AuthenticatedDiagnosticoRouteImport } from './routes/_authenticated/diagnostico'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -33,15 +34,23 @@ const AuthenticatedOnboardingRoute = AuthenticatedOnboardingRouteImport.update({
   path: '/onboarding',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDiagnosticoRoute =
+  AuthenticatedDiagnosticoRouteImport.update({
+    id: '/diagnostico',
+    path: '/diagnostico',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/diagnostico': typeof AuthenticatedDiagnosticoRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/diagnostico': typeof AuthenticatedDiagnosticoRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
 }
 export interface FileRoutesById {
@@ -49,18 +58,20 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/diagnostico': typeof AuthenticatedDiagnosticoRoute
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/onboarding'
+  fullPaths: '/' | '/auth' | '/diagnostico' | '/onboarding'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/onboarding'
+  to: '/' | '/auth' | '/diagnostico' | '/onboarding'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/diagnostico'
     | '/_authenticated/onboarding'
   fileRoutesById: FileRoutesById
 }
@@ -100,14 +111,23 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOnboardingRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/diagnostico': {
+      id: '/_authenticated/diagnostico'
+      path: '/diagnostico'
+      fullPath: '/diagnostico'
+      preLoaderRoute: typeof AuthenticatedDiagnosticoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedDiagnosticoRoute: typeof AuthenticatedDiagnosticoRoute
   AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedDiagnosticoRoute: AuthenticatedDiagnosticoRoute,
   AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
 }
 
