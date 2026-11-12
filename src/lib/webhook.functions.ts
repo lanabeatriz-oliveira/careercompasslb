@@ -25,6 +25,18 @@ export const dispararWebhookMake = createServerFn({ method: "POST" })
       return { ok: false, motivo: "webhook_nao_configurado" as const };
     }
 
+    let respostas: unknown = {};
+    const { data: perfil, error: perfilError } = await context.supabase
+      .from("perfis_contexto")
+      .select("respostas")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (perfilError) {
+      console.error("[webhook] erro lendo perfis_contexto", perfilError);
+    } else if (perfil?.respostas) {
+      respostas = perfil.respostas;
+    }
+
     try {
       const res = await fetch(cfg.webhook_url, {
         method: "POST",
@@ -35,6 +47,7 @@ export const dispararWebhookMake = createServerFn({ method: "POST" })
           timestamp: new Date().toISOString(),
           cadencia: cfg.cadencia,
           quantidade: cfg.quantidade,
+          respostas,
           ...data.payload,
         }),
       });
