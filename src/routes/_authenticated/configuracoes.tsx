@@ -1,3 +1,4 @@
+import { pageMeta } from "@/lib/page-meta";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,7 +10,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
-  head: () => ({ meta: [{ title: "Configurações — Carreiras" }] }),
+  head: () => pageMeta("Configurações — Carreiras", "Escolha a cadência e a quantidade de posts gerados para sua carreira."),
   component: ConfiguracoesPage,
 });
 
@@ -118,23 +119,6 @@ function ConfiguracoesPage() {
               />
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>URL do Webhook Make.com</CardTitle>
-          <CardDescription>
-            Cole aqui o endereço do seu cenário no Make. É para lá que enviamos os pedidos de
-            geração e regeneração de posts.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Input
-            placeholder="https://hook.make.com/xxxxxxxx"
-            value={webhookUrl}
-            onChange={(e) => setWebhookUrl(e.target.value)}
-          />
         </CardContent>
       </Card>
 

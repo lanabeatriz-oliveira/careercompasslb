@@ -1,19 +1,25 @@
+import { pageMeta } from "@/lib/page-meta";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { dispararWebhookMake } from "@/lib/webhook.functions";
 import { useServerFn } from "@tanstack/react-start";
-import { Sparkles } from "lucide-react";
+import { RefreshCw, Sparkles } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { DIAGNOSTIC_TIMEOUT_MS, POLLING_INTERVAL_MS, mergeLinkedIn, LinkedInFieldsSchema } from "@/lib/make-integration";
 
 export const Route = createFileRoute("/_authenticated/diagnostico")({
-  head: () => ({ meta: [{ title: "Diagnóstico — Carreiras" }] }),
+  head: () => pageMeta("Diagnóstico — Carreiras", "Acompanhe a análise real do seu perfil no LinkedIn e atualize seu diagnóstico."),
   component: DiagnosticoPage,
 });
 
 type Notas = {
+  id: string;
+  created_at: string;
   nota_geral: number;
   headline_nota: number;
   headline_comentario: string;
@@ -31,31 +37,146 @@ function DiagnosticoPage() {
   const [notas, setNotas] = useState<Notas | null>(null);
   const [loading, setLoading] = useState(true);
   const [gerando, setGerando] = useState(false);
+  const [solicitando, setSolicitando] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [espera, setEspera] = useState<{ baseline: Notas | null; inicio: number; avisar: boolean } | null>(null);
+  const [expirou, setExpirou] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [campos, setCampos] = useState({ linkedin_headline: "", linkedin_resumo: "", linkedin_experiencias: "" });
+  const mounted = useRef(true);
+  const atualizando = solicitando || !!espera;
 
   useEffect(() => {
+    mounted.current = true;
     (async () => {
+      try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return;
-      const { data: perfil } = await supabase
+      const { data: perfil, error: perfilError } = await supabase
         .from("perfis_contexto")
-        .select("concluido_em")
+        .select("concluido_em, respostas")
         .eq("user_id", u.user.id)
         .maybeSingle();
+      if (!mounted.current) return;
+      if (perfilError) throw perfilError;
       if (!perfil?.concluido_em) {
         navigate({ to: "/onboarding" });
         return;
       }
-      const { data } = await supabase
+      setUserId(u.user.id);
+      const respostas = perfil.respostas;
+      if (respostas && typeof respostas === "object" && !Array.isArray(respostas)) {
+        setCampos({
+          linkedin_headline: typeof respostas.linkedin_headline === "string" ? respostas.linkedin_headline : "",
+          linkedin_resumo: typeof respostas.linkedin_resumo === "string" ? respostas.linkedin_resumo : "",
+          linkedin_experiencias: typeof respostas.linkedin_experiencias === "string" ? respostas.linkedin_experiencias : "",
+        });
+      }
+      const { data, error } = await supabase
         .from("notas")
         .select("*")
         .eq("user_id", u.user.id)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
+      if (!mounted.current) return;
+      if (error) throw error;
       if (data) setNotas(data as Notas);
-      setLoading(false);
+      else setEspera({ baseline: null, inicio: Date.now(), avisar: false });
+      } catch {
+        if (mounted.current) {
+          setExpirou(true);
+          toast.error("Não conseguimos carregar seu diagnóstico. Tente novamente.");
+        }
+      } finally {
+        if (mounted.current) setLoading(false);
+      }
     })();
+    return () => { mounted.current = false; };
   }, [navigate]);
+
+  useEffect(() => {
+    if (!espera || !userId) return;
+    let active = true;
+    let fetching = false;
+    const remaining = DIAGNOSTIC_TIMEOUT_MS - (Date.now() - espera.inicio);
+    function expire() {
+      if (!active) return;
+      active = false;
+      setEspera(null);
+      setExpirou(true);
+    }
+    const timeout = window.setTimeout(expire, Math.max(0, remaining));
+    const interval = window.setInterval(async () => {
+      if (!active || fetching) return;
+      if (Date.now() - espera.inicio >= DIAGNOSTIC_TIMEOUT_MS) { expire(); return; }
+      fetching = true;
+      try {
+        let query = supabase.from("notas").select("*").eq("user_id", userId);
+        if (espera.baseline) query = query.gt("created_at", espera.baseline.created_at);
+        const { data, error } = await query.order("created_at", { ascending: false }).limit(1).maybeSingle();
+        if (!active || error || !data) return;
+        active = false;
+        setNotas(data as Notas);
+        setEspera(null);
+        setExpirou(false);
+        if (espera.avisar) toast.success("Diagnóstico atualizado!");
+      } catch {
+        // Keep waiting until the bounded deadline on transient failures.
+      } finally { fetching = false; }
+    }, POLLING_INTERVAL_MS);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.clearTimeout(timeout);
+    };
+  }, [espera, userId]);
+
+  async function atualizarDiagnostico() {
+    if (atualizando) return;
+    setSolicitando(true);
+    setExpirou(false);
+    const baseline = notas;
+    const inicio = Date.now();
+    try {
+      const r = await disparar({ data: { evento: "gerar_nota", payload: {} } });
+      if (!mounted.current) return;
+      if (r.ok) {
+        setEspera({ baseline, inicio, avisar: true });
+      } else {
+        setExpirou(true);
+        if (r.motivo === "webhook_nao_configurado") {
+          toast.error("A integração com o Make.com ainda não está configurada.");
+          navigate({ to: "/configuracoes" });
+        } else toast.error("Não conseguimos solicitar o diagnóstico. Tente novamente.");
+      }
+    } catch {
+      if (mounted.current) {
+        setExpirou(true);
+        toast.error("Não conseguimos solicitar o diagnóstico. Tente novamente.");
+      }
+    } finally { if (mounted.current) setSolicitando(false); }
+  }
+
+  async function salvarPerfil() {
+    if (salvando || atualizando) return;
+    const parsed = LinkedInFieldsSchema.safeParse(campos);
+    if (!parsed.success) { toast.error("Cada campo deve ter no máximo 3000 caracteres."); return; }
+    setSalvando(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Sessão indisponível");
+      const { data: perfil, error } = await supabase.from("perfis_contexto").select("respostas")
+        .eq("user_id", u.user.id).single();
+      if (error || !perfil) throw error ?? new Error("Perfil indisponível");
+      const { error: saveError } = await supabase.from("perfis_contexto")
+        .update({ respostas: mergeLinkedIn(perfil.respostas, parsed.data) }).eq("user_id", u.user.id);
+      if (saveError) throw saveError;
+      if (mounted.current) await atualizarDiagnostico();
+    } catch {
+      if (mounted.current) toast.error("Não conseguimos salvar seu perfil. Tente novamente.");
+    } finally { if (mounted.current) setSalvando(false); }
+  }
 
   async function gerarPosts() {
     setGerando(true);
@@ -65,7 +186,7 @@ function DiagnosticoPage() {
       toast.success("Solicitação enviada! Os posts vão aparecer em breve.");
       navigate({ to: "/posts" });
     } else if (r.motivo === "webhook_nao_configurado") {
-      toast.error("Configure a URL do webhook Make.com em Configurações.");
+      toast.error("A integração com o Make.com ainda não está configurada.");
       navigate({ to: "/configuracoes" });
     } else {
       toast.error("Não conseguimos disparar a geração. Tente novamente.");
@@ -73,9 +194,8 @@ function DiagnosticoPage() {
   }
 
   if (loading) return <div className="p-8 text-muted-foreground">Carregando...</div>;
-  if (!notas) return <div className="p-8">Sem diagnóstico ainda.</div>;
 
-  const categorias = [
+  const categorias = notas ? [
     { titulo: "Headline e Foto", nota: notas.headline_nota, comentario: notas.headline_comentario },
     { titulo: "Resumo", nota: notas.resumo_nota, comentario: notas.resumo_comentario },
     { titulo: "Experiência", nota: notas.experiencia_nota, comentario: notas.experiencia_comentario },
@@ -84,7 +204,7 @@ function DiagnosticoPage() {
       nota: notas.atividade_nota,
       comentario: notas.atividade_comentario,
     },
-  ];
+  ] : [];
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6 md:p-10">
@@ -95,12 +215,27 @@ function DiagnosticoPage() {
             Como está seu LinkedIn hoje e onde focar primeiro.
           </p>
         </div>
-        <Button onClick={gerarPosts} disabled={gerando} size="lg">
+        <div className="flex flex-wrap gap-2">
+        {notas && <Button variant="outline" onClick={atualizarDiagnostico} disabled={atualizando || salvando} size="lg">
+          <RefreshCw className="mr-2 h-4 w-4" />
+          {atualizando ? "Gerando..." : "Atualizar diagnóstico"}
+        </Button>}
+        {notas && <Button onClick={gerarPosts} disabled={gerando} size="lg">
           <Sparkles className="mr-2 h-4 w-4" />
           {gerando ? "Enviando..." : "Gerar posts"}
-        </Button>
+        </Button>}
+        </div>
       </div>
 
+      {!notas && <div className="space-y-3" role="status">
+        <p>{atualizando ? "Gerando seu diagnóstico..." : "Seu diagnóstico ainda não chegou. Tente novamente."}</p>
+        {!atualizando && <Button onClick={atualizarDiagnostico} disabled={salvando}>
+          <RefreshCw className="mr-2 h-4 w-4" /> Gerar diagnóstico
+        </Button>}
+      </div>}
+      {notas && expirou && <p className="text-sm text-muted-foreground" role="status">A atualização demorou mais que o esperado. Tente novamente.</p>}
+
+      {notas && <>
       <Card className="overflow-hidden">
         <CardContent className="flex flex-col items-center gap-4 p-8 md:flex-row md:gap-8">
           <NotaCircular valor={Number(notas.nota_geral)} />
@@ -137,6 +272,26 @@ function DiagnosticoPage() {
           </Card>
         ))}
       </div>
+      </>}
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Cole seu perfil atual do LinkedIn (melhora a nota)</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          {([
+            ["linkedin_headline", "Headline atual"],
+            ["linkedin_resumo", "Resumo (Sobre)"],
+            ["linkedin_experiencias", "Experiências"],
+          ] as const).map(([key, label]) => <div key={key} className="space-y-1.5">
+            <Label htmlFor={key}>{label}</Label>
+            <Textarea id={key} maxLength={3000} rows={key === "linkedin_headline" ? 2 : 4}
+              value={campos[key]} onChange={(e) => setCampos((previous) => ({ ...previous, [key]: e.target.value }))} />
+          </div>)}
+          <Button onClick={salvarPerfil} disabled={salvando || atualizando}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            {salvando ? "Salvando..." : "Salvar e atualizar diagnóstico"}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

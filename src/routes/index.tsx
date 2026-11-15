@@ -1,8 +1,10 @@
+import { pageMeta } from "@/lib/page-meta";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles, Calendar, LineChart } from "lucide-react";
 
 export const Route = createFileRoute("/")({
+  head: () => pageMeta("Carreiras — LinkedIn e recolocação profissional", "Melhore seu perfil no LinkedIn e prepare posts de personal branding com Carreiras."),
   component: Landing,
 });
 

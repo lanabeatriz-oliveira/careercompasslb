@@ -18,6 +18,7 @@ import { Route as AuthenticatedDiagnosticoRouteImport } from './routes/_authenti
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedCalendarioRouteImport } from './routes/_authenticated/calendario'
 import { Route as ApiPublicPostsCallbackRouteImport } from './routes/api/public/posts-callback'
+import { Route as ApiPublicNotasCallbackRouteImport } from './routes/api/public/notas-callback'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -65,6 +66,11 @@ const ApiPublicPostsCallbackRoute = ApiPublicPostsCallbackRouteImport.update({
   path: '/api/public/posts-callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicNotasCallbackRoute = ApiPublicNotasCallbackRouteImport.update({
+  id: '/api/public/notas-callback',
+  path: '/api/public/notas-callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -74,6 +80,7 @@ export interface FileRoutesByFullPath {
   '/diagnostico': typeof AuthenticatedDiagnosticoRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/posts': typeof AuthenticatedPostsRoute
+  '/api/public/notas-callback': typeof ApiPublicNotasCallbackRoute
   '/api/public/posts-callback': typeof ApiPublicPostsCallbackRoute
 }
 export interface FileRoutesByTo {
@@ -84,6 +91,7 @@ export interface FileRoutesByTo {
   '/diagnostico': typeof AuthenticatedDiagnosticoRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/posts': typeof AuthenticatedPostsRoute
+  '/api/public/notas-callback': typeof ApiPublicNotasCallbackRoute
   '/api/public/posts-callback': typeof ApiPublicPostsCallbackRoute
 }
 export interface FileRoutesById {
@@ -96,6 +104,7 @@ export interface FileRoutesById {
   '/_authenticated/diagnostico': typeof AuthenticatedDiagnosticoRoute
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/posts': typeof AuthenticatedPostsRoute
+  '/api/public/notas-callback': typeof ApiPublicNotasCallbackRoute
   '/api/public/posts-callback': typeof ApiPublicPostsCallbackRoute
 }
 export interface FileRouteTypes {
@@ -108,6 +117,7 @@ export interface FileRouteTypes {
     | '/diagnostico'
     | '/onboarding'
     | '/posts'
+    | '/api/public/notas-callback'
     | '/api/public/posts-callback'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -118,6 +128,7 @@ export interface FileRouteTypes {
     | '/diagnostico'
     | '/onboarding'
     | '/posts'
+    | '/api/public/notas-callback'
     | '/api/public/posts-callback'
   id:
     | '__root__'
@@ -129,6 +140,7 @@ export interface FileRouteTypes {
     | '/_authenticated/diagnostico'
     | '/_authenticated/onboarding'
     | '/_authenticated/posts'
+    | '/api/public/notas-callback'
     | '/api/public/posts-callback'
   fileRoutesById: FileRoutesById
 }
@@ -136,6 +148,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicNotasCallbackRoute: typeof ApiPublicNotasCallbackRoute
   ApiPublicPostsCallbackRoute: typeof ApiPublicPostsCallbackRoute
 }
 
@@ -204,6 +217,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPostsCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/notas-callback': {
+      id: '/api/public/notas-callback'
+      path: '/api/public/notas-callback'
+      fullPath: '/api/public/notas-callback'
+      preLoaderRoute: typeof ApiPublicNotasCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -230,6 +250,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicNotasCallbackRoute: ApiPublicNotasCallbackRoute,
   ApiPublicPostsCallbackRoute: ApiPublicPostsCallbackRoute,
 }
 export const routeTree = rootRouteImport

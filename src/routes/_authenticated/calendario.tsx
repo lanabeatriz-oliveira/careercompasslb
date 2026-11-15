@@ -1,3 +1,4 @@
+import { pageMeta } from "@/lib/page-meta";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +15,7 @@ import {
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/calendario")({
-  head: () => ({ meta: [{ title: "Calendário — Carreiras" }] }),
+  head: () => pageMeta("Calendário — Carreiras", "Acompanhe as datas de publicação dos seus posts aprovados no calendário editorial."),
   component: CalendarioPage,
 });
 

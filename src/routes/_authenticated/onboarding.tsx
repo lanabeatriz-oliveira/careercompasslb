@@ -1,3 +1,4 @@
+import { pageMeta } from "@/lib/page-meta";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,7 +12,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Send, X } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
-  head: () => ({ meta: [{ title: "Onboarding — Carreiras" }] }),
+  head: () => pageMeta("Onboarding — Carreiras", "Compartilhe seus objetivos profissionais para personalizar seu diagnóstico e conteúdo."),
   component: OnboardingChat,
 });
 
@@ -179,31 +180,12 @@ function OnboardingChat() {
       return;
     }
 
-    // Insere linha mock de notas (placeholder até o Make devolver)
-    await supabase.from("notas").insert({
-      user_id: userData.user.id,
-      nota_geral: 6.8,
-      headline_nota: 7.5,
-      headline_comentario:
-        "Sua headline comunica o cargo, mas pode incorporar sua proposta de valor e palavras-chave do seu cargo-alvo.",
-      resumo_nota: 6.0,
-      resumo_comentario:
-        "O resumo funciona como bio; falta uma abertura forte com sua conquista mais recente e um CTA para conexão.",
-      experiencia_nota: 7.0,
-      experiencia_comentario:
-        "As experiências têm cargos e datas, mas poucas trazem resultados quantificados. Reescreva usando métricas.",
-      atividade_nota: 5.5,
-      atividade_comentario:
-        "Frequência de publicação baixa. Comece com 3 posts/semana para ganhar tração no algoritmo.",
-    });
-
-    try {
-      await disparar({
+    await Promise.allSettled([
+      disparar({
         data: { evento: "onboarding_concluido", payload: { respostas: respostasFinais } },
-      });
-    } catch {
-      // ignore
-    }
+      }),
+      disparar({ data: { evento: "gerar_nota", payload: { respostas: respostasFinais } } }),
+    ]);
 
     setEnviando(false);
     setEtapa("finalizado");

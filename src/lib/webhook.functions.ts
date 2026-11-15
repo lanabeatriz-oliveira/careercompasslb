@@ -1,9 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { webhookUrl } from "@/lib/make-integration";
 
 const EventoSchema = z.object({
-  evento: z.enum(["onboarding_concluido", "gerar_posts", "regenerar_post"]),
+  evento: z.enum(["onboarding_concluido", "gerar_posts", "regenerar_post", "gerar_nota"]),
   payload: z.record(z.unknown()).default({}),
 });
 
@@ -21,7 +22,8 @@ export const dispararWebhookMake = createServerFn({ method: "POST" })
       console.error("[webhook] erro lendo configuracoes", error);
       return { ok: false, motivo: "config_error" as const };
     }
-    if (!cfg?.webhook_url) {
+    const url = webhookUrl(process.env.MAKE_WEBHOOK_URL, cfg?.webhook_url);
+    if (!url) {
       return { ok: false, motivo: "webhook_nao_configurado" as const };
     }
 
@@ -38,15 +40,15 @@ export const dispararWebhookMake = createServerFn({ method: "POST" })
     }
 
     try {
-      const res = await fetch(cfg.webhook_url, {
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           evento: data.evento,
           user_id: context.userId,
           timestamp: new Date().toISOString(),
-          cadencia: cfg.cadencia,
-          quantidade: cfg.quantidade,
+          cadencia: cfg?.cadencia ?? "semanal",
+          quantidade: cfg?.quantidade ?? 3,
           respostas,
           ...data.payload,
         }),

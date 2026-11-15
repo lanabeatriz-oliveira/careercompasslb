@@ -1,5 +1,7 @@
+import { pageMeta } from "@/lib/page-meta";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { POLLING_INTERVAL_MS, postsChanged } from "@/lib/make-integration";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,7 +22,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Check, X, Pencil, RefreshCw, Sparkles, Filter } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/posts")({
-  head: () => ({ meta: [{ title: "Posts — Carreiras" }] }),
+  head: () => pageMeta("Posts — Carreiras", "Revise, edite e agende seus posts de personal branding no Carreiras."),
   component: PostsPage,
 });
 
@@ -58,6 +60,8 @@ function PostsPage() {
   const [dataEscolhida, setDataEscolhida] = useState<Date | undefined>(new Date());
   const [regenerandoId, setRegenerandoId] = useState<string | null>(null);
   const [motivo, setMotivo] = useState("");
+  const busyRef = useRef(false);
+  busyRef.current = !!editandoId || !!aprovandoId || !!regenerandoId;
 
   async function carregar() {
     setLoading(true);
@@ -74,6 +78,28 @@ function PostsPage() {
 
   useEffect(() => {
     carregar();
+    let active = true;
+    let fetching = false;
+    const interval = window.setInterval(async () => {
+      if (document.visibilityState !== "visible" || fetching) return;
+      fetching = true;
+      try {
+        const { data: u } = await supabase.auth.getUser();
+        if (!u.user || !active) return;
+        const { data, error } = await supabase.from("posts").select("*")
+          .eq("user_id", u.user.id).order("created_at", { ascending: false });
+        if (error || !data || !active || busyRef.current || document.visibilityState !== "visible") return;
+        setPosts((previous) => postsChanged(previous, data) ? data as Post[] : previous);
+      } catch {
+        // Silent refresh: retain the last successful list on transient failures.
+      } finally {
+        fetching = false;
+      }
+    }, POLLING_INTERVAL_MS);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
   }, []);
 
   const filtrados = filtro === "todos" ? posts : posts.filter((p) => p.status === filtro);
@@ -135,7 +161,7 @@ function PostsPage() {
     if (r.ok) {
       toast.success("Regeneração solicitada.");
     } else if (r.motivo === "webhook_nao_configurado") {
-      toast.error("Configure a URL do webhook em Configurações.");
+      toast.error("A integração com o Make.com ainda não está configurada.");
     } else {
       toast.error("Não conseguimos solicitar.");
     }

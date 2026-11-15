@@ -1,3 +1,4 @@
+import { pageMeta } from "@/lib/page-meta";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,9 +12,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 export const Route = createFileRoute("/auth")({
-  head: () => ({
-    meta: [{ title: "Entrar — Carreiras" }],
-  }),
+  head: () => pageMeta("Entrar — Carreiras", "Entre ou crie sua conta no Carreiras para acompanhar seu LinkedIn e seus posts."),
   component: AuthPage,
 });
 
