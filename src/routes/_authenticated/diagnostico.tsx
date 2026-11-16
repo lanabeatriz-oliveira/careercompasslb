@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { dispararWebhookMake } from "@/lib/webhook.functions";
 import { useServerFn } from "@tanstack/react-start";
-import { RefreshCw, Sparkles } from "lucide-react";
+import { RefreshCw, Sparkles, Upload, MessageSquare } from "lucide-react";
+import { extractLinkedInPdf } from "@/lib/linkedin-pdf";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { DIAGNOSTIC_TIMEOUT_MS, POLLING_INTERVAL_MS, mergeLinkedIn, LinkedInFieldsSchema } from "@/lib/make-integration";
@@ -42,7 +43,10 @@ function DiagnosticoPage() {
   const [espera, setEspera] = useState<{ baseline: Notas | null; inicio: number; avisar: boolean } | null>(null);
   const [expirou, setExpirou] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
-  const [campos, setCampos] = useState({ linkedin_headline: "", linkedin_resumo: "", linkedin_experiencias: "" });
+  const [campos, setCampos] = useState({ linkedin_headline: "", linkedin_resumo: "", linkedin_experiencias: "", linkedin_pdf: "" });
+  const [extraindo, setExtraindo] = useState(false);
+  const [pdfErro, setPdfErro] = useState<string | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
   const mounted = useRef(true);
   const atualizando = solicitando || !!espera;
 
@@ -70,6 +74,7 @@ function DiagnosticoPage() {
           linkedin_headline: typeof respostas.linkedin_headline === "string" ? respostas.linkedin_headline : "",
           linkedin_resumo: typeof respostas.linkedin_resumo === "string" ? respostas.linkedin_resumo : "",
           linkedin_experiencias: typeof respostas.linkedin_experiencias === "string" ? respostas.linkedin_experiencias : "",
+          linkedin_pdf: typeof respostas.linkedin_pdf === "string" ? respostas.linkedin_pdf : "",
         });
       }
       const { data, error } = await supabase
@@ -159,9 +164,9 @@ function DiagnosticoPage() {
   }
 
   async function salvarPerfil() {
-    if (salvando || atualizando) return;
+    if (salvando || atualizando || extraindo) return;
     const parsed = LinkedInFieldsSchema.safeParse(campos);
-    if (!parsed.success) { toast.error("Cada campo deve ter no máximo 3000 caracteres."); return; }
+    if (!parsed.success) { toast.error("Os campos devem ter até 3000 caracteres e o texto do PDF até 12000."); return; }
     setSalvando(true);
     try {
       const { data: u } = await supabase.auth.getUser();
@@ -208,14 +213,17 @@ function DiagnosticoPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6 md:p-10">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
+      <div className="grid min-w-0 gap-4 sm:flex sm:flex-wrap sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <h1 className="font-display text-3xl font-semibold">Seu diagnóstico</h1>
           <p className="text-sm text-muted-foreground">
             Como está seu LinkedIn hoje e onde focar primeiro.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex min-w-0 flex-wrap gap-2">
+        <Button variant="outline" onClick={() => navigate({ to: "/onboarding", search: { refazer: "1" } })}>
+          <MessageSquare className="mr-2 h-4 w-4 shrink-0" /> Refazer onboarding
+        </Button>
         {notas && <Button variant="outline" onClick={atualizarDiagnostico} disabled={atualizando || salvando} size="lg">
           <RefreshCw className="mr-2 h-4 w-4" />
           {atualizando ? "Gerando..." : "Atualizar diagnóstico"}
@@ -277,6 +285,35 @@ function DiagnosticoPage() {
       <Card>
         <CardHeader><CardTitle className="text-base">Cole seu perfil atual do LinkedIn (melhora a nota)</CardTitle></CardHeader>
         <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <input ref={fileInput} type="file" accept=".pdf,application/pdf" className="hidden" aria-label="PDF do LinkedIn" onChange={async (event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (!file || extraindo) return;
+              setExtraindo(true);
+              setPdfErro(null);
+              try {
+                const text = await extractLinkedInPdf(file);
+                if (mounted.current) {
+                  setCampos((previous) => ({ ...previous, linkedin_pdf: text }));
+                  toast.success("Texto extraído. Confira antes de salvar.");
+                }
+              } catch (error) {
+                if (mounted.current) setPdfErro(error instanceof Error && /PDF|pdf/.test(error.message)
+                  ? error.message : "Não conseguimos ler este PDF. Confira se ele abre normalmente e não está protegido por senha.");
+              } finally { if (mounted.current) setExtraindo(false); }
+            }} />
+            <Button variant="outline" onClick={() => fileInput.current?.click()} disabled={extraindo || salvando || atualizando}>
+              <Upload className="mr-2 h-4 w-4 shrink-0" /> {extraindo ? "Lendo PDF..." : "Enviar PDF do LinkedIn"}
+            </Button>
+            <p className="text-xs text-muted-foreground">No LinkedIn: seu perfil → Mais → Salvar como PDF</p>
+            {pdfErro && <p role="alert" className="text-sm text-destructive">{pdfErro}</p>}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="linkedin_pdf">Texto do PDF do LinkedIn</Label>
+            <Textarea id="linkedin_pdf" maxLength={12000} rows={6} value={campos.linkedin_pdf}
+              onChange={(event) => setCampos((previous) => ({ ...previous, linkedin_pdf: event.target.value }))} />
+          </div>
           {([
             ["linkedin_headline", "Headline atual"],
             ["linkedin_resumo", "Resumo (Sobre)"],
@@ -286,7 +323,7 @@ function DiagnosticoPage() {
             <Textarea id={key} maxLength={3000} rows={key === "linkedin_headline" ? 2 : 4}
               value={campos[key]} onChange={(e) => setCampos((previous) => ({ ...previous, [key]: e.target.value }))} />
           </div>)}
-          <Button onClick={salvarPerfil} disabled={salvando || atualizando}>
+          <Button className="h-auto min-h-9 whitespace-normal text-left" onClick={salvarPerfil} disabled={salvando || atualizando || extraindo}>
             <RefreshCw className="mr-2 h-4 w-4" />
             {salvando ? "Salvando..." : "Salvar e atualizar diagnóstico"}
           </Button>

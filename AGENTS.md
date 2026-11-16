@@ -14,3 +14,5 @@
 - Poll posts silently only in visible tabs, comparing IDs/statuses and preserving active editors/dialogs; bound diagnostic polling to two minutes.
 - Read the shared Make webhook URL inside the authenticated handler, with the existing user configuration as fallback.
 - Use the shared page metadata helper in each content route so page-specific social titles and descriptions remain complete.
+- Validate onboarding restart search state with the Zod adapter and merge edited answers into the latest saved JSON to preserve supplemental profile material.
+- Load PDF.js and its Vite worker URL dynamically only from a browser upload event; persist extracted text, never upload the PDF file.

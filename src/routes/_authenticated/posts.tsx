@@ -1,5 +1,5 @@
 import { pageMeta } from "@/lib/page-meta";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { POLLING_INTERVAL_MS, postsChanged } from "@/lib/make-integration";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,6 +51,7 @@ function PostsPage() {
   const disparar = useServerFn(dispararWebhookMake);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [semPdf, setSemPdf] = useState(false);
   const [filtro, setFiltro] = useState<(typeof FILTROS)[number]>("todos");
 
   const [editandoId, setEditandoId] = useState<string | null>(null);
@@ -79,6 +80,15 @@ function PostsPage() {
   useEffect(() => {
     carregar();
     let active = true;
+    (async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user || !active) return;
+      const { data, error } = await supabase.from("perfis_contexto").select("respostas").eq("user_id", u.user.id).maybeSingle();
+      if (error || !active) return;
+      const answers = data?.respostas;
+      const pdf = answers && typeof answers === "object" && !Array.isArray(answers) ? answers.linkedin_pdf : undefined;
+      setSemPdf(typeof pdf !== "string" || !pdf.trim());
+    })().catch(() => { /* Do not show a reminder when profile loading failed. */ });
     let fetching = false;
     const interval = window.setInterval(async () => {
       if (document.visibilityState !== "visible" || fetching) return;
@@ -175,6 +185,11 @@ function PostsPage() {
         <h1 className="font-display text-3xl font-semibold">Seus posts</h1>
         <p className="text-sm text-muted-foreground">Revise, edite e agende cada peça.</p>
       </div>
+
+      {semPdf && <div className="border-l-2 border-primary pl-3 text-sm text-muted-foreground">
+        Quer posts mais variados? Envie seu PDF do LinkedIn no{" "}
+        <Button asChild variant="link" className="h-auto p-0 align-baseline"><Link to="/diagnostico">Diagnóstico</Link></Button>.
+      </div>}
 
       <div className="flex flex-wrap items-center gap-2">
         <Filter className="h-4 w-4 text-muted-foreground" />

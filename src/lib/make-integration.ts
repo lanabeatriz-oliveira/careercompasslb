@@ -46,6 +46,7 @@ export const LinkedInFieldsSchema = z.object({
   linkedin_headline: z.string().max(3000),
   linkedin_resumo: z.string().max(3000),
   linkedin_experiencias: z.string().max(3000),
+  linkedin_pdf: z.string().max(12000).optional(),
 });
 
 export function mergeLinkedIn(respostas: Json, fields: z.infer<typeof LinkedInFieldsSchema>) {

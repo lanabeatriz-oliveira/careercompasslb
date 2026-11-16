@@ -70,7 +70,7 @@ function AuthenticatedLayout() {
           </div>
         </aside>
 
-        <main className="min-h-screen flex-1">
+        <main className="min-h-screen min-w-0 flex-1">
           {/* Mobile header */}
           <div className="flex items-center justify-between border-b bg-background px-4 py-3 md:hidden">
             <div className="flex items-center gap-2">
