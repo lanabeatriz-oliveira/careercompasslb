@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { dispararWebhookMake } from "@/lib/webhook.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { Send, X } from "lucide-react";
-import { mergeOnboarding, onboardingSearch, savedAnswers, shouldRedirectOnboarding, type OnboardingAnswers } from "@/lib/onboarding";
+import { adicionarTemas, MAX_TEMAS, mergeOnboarding, onboardingSearch, savedAnswers, shouldRedirectOnboarding, type OnboardingAnswers } from "@/lib/onboarding";
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
   head: () => pageMeta("Onboarding — Carreiras", "Compartilhe seus objetivos profissionais para personalizar seu diagnóstico e conteúdo."),
@@ -165,21 +165,24 @@ function OnboardingChat() {
     addMsg("bot", PERGUNTAS.temas);
   }
 
-  function addTema() {
-    const t = entradaTema.trim();
-    if (!t || temas.length >= 3 || temas.includes(t)) return;
-    setTemas([...temas, t]);
+  function addTema(): string[] {
+    if (!entradaTema.trim()) return temas;
+    const r = adicionarTemas(temas, entradaTema);
+    if (r.excedeu) toast.warning("Máximo de 3 temas");
+    setTemas(r.temas);
     setEntradaTema("");
+    return r.temas;
   }
 
   async function finalizarTemas() {
     if (envioRef.current || carregando || erroCarga) return;
-    if (temas.length === 0) {
+    const temasFinais = addTema();
+    if (temasFinais.length === 0) {
       toast.error("Adicione pelo menos 1 tema.");
       return;
     }
-    addMsg("user", temas.join(", "));
-    const respostasFinais: Respostas = { ...respostas, temas };
+    addMsg("user", temasFinais.join(", "));
+    const respostasFinais: Respostas = { ...respostas, temas: temasFinais };
     setRespostas(respostasFinais);
     setEnviando(true);
     envioRef.current = true;
@@ -285,16 +288,18 @@ function OnboardingChat() {
             </div>
             <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
               <Input
-                placeholder={temas.length >= 3 ? "Máximo 3 temas" : "Ex: liderança, dados, produto"}
+                placeholder={temas.length >= MAX_TEMAS ? "Máximo 3 temas" : "Ex: liderança, vendas, marketing"}
+                className="min-w-0"
                 value={entradaTema}
                 onChange={(e) => setEntradaTema(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTema())}
-                disabled={temas.length >= 3}
+                disabled={temas.length >= MAX_TEMAS}
               />
-              <Button variant="outline" onClick={addTema} disabled={temas.length >= 3}>
+              <Button type="button" variant="outline" className="shrink-0" onClick={() => addTema()} disabled={temas.length >= MAX_TEMAS || !entradaTema.trim()}>
                 Adicionar
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground">{temas.length} de 3 temas</p>
             <Button className="w-full" onClick={finalizarTemas} disabled={enviando}>
               {enviando ? "Salvando..." : "Concluir onboarding"}
             </Button>

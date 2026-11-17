@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { dispararWebhookMake } from "@/lib/webhook.functions";
 import { useServerFn } from "@tanstack/react-start";
-import { RefreshCw, Sparkles, Upload, MessageSquare } from "lucide-react";
+import { Loader2, RefreshCw, Sparkles, Upload, MessageSquare } from "lucide-react";
 import { extractLinkedInPdf } from "@/lib/linkedin-pdf";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -189,7 +189,7 @@ function DiagnosticoPage() {
     setGerando(false);
     if (r.ok) {
       toast.success("Solicitação enviada! Os posts vão aparecer em breve.");
-      navigate({ to: "/posts" });
+      navigate({ to: "/posts", search: { gerando: "1" } });
     } else if (r.motivo === "webhook_nao_configurado") {
       toast.error("A integração com o Make.com ainda não está configurada.");
       navigate({ to: "/configuracoes" });
@@ -213,6 +213,10 @@ function DiagnosticoPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6 md:p-10">
+      {atualizando && <div role="status" className="flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm">
+        <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-primary" />
+        <span>Gerando seu diagnóstico... isso leva de 10 a 30 segundos. Você não precisa recarregar a página.</span>
+      </div>}
       <div className="grid min-w-0 gap-4 sm:flex sm:flex-wrap sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h1 className="font-display text-3xl font-semibold">Seu diagnóstico</h1>

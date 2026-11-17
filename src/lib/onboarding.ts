@@ -29,3 +29,16 @@ export function mergeOnboarding(previous: Json, answers: OnboardingAnswers) {
   const record = previous && typeof previous === "object" && !Array.isArray(previous) ? previous : {};
   return { ...record, ...answers };
 }
+export const MAX_TEMAS = 3;
+/** Splits typed themes by comma/semicolon/newline, dedupes case-insensitively and caps at 3. */
+export function adicionarTemas(atuais: string[], texto: string) {
+  const temas = [...atuais];
+  let excedeu = false;
+  for (const item of texto.split(/[,;\n]/)) {
+    const t = item.trim();
+    if (!t || temas.some((x) => x.toLowerCase() === t.toLowerCase())) continue;
+    if (temas.length >= MAX_TEMAS) { excedeu = true; continue; }
+    temas.push(t);
+  }
+  return { temas, excedeu };
+}

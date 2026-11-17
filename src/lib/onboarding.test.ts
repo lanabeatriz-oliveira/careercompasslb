@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeOnboarding, onboardingSearchSchema, savedAnswers, shouldRedirectOnboarding } from "./onboarding";
+import { adicionarTemas, mergeOnboarding, onboardingSearchSchema, savedAnswers, shouldRedirectOnboarding } from "./onboarding";
 import { limitPdfText, PDF_MAX_BYTES, validateLinkedInPdf } from "./linkedin-pdf";
 import { LinkedInFieldsSchema, mergeLinkedIn } from "./make-integration";
 
@@ -44,5 +44,19 @@ describe("Local LinkedIn PDF", () => {
     expect(LinkedInFieldsSchema.safeParse(fields).success).toBe(true);
     expect(LinkedInFieldsSchema.safeParse({ ...fields, linkedin_pdf: "x".repeat(12001) }).success).toBe(false);
     expect(mergeLinkedIn({ cargo: "Analista", outras_experiencias: "Projeto" }, fields)).toEqual({ cargo: "Analista", outras_experiencias: "Projeto", ...fields });
+  });
+});describe("Onboarding themes", () => {
+  it("splits by comma, semicolon and newline", () => {
+    expect(adicionarTemas([], " liderança, vendas;\nmarketing ").temas).toEqual(["liderança", "vendas", "marketing"]);
+  });
+  it("ignores case-insensitive duplicates", () => {
+    expect(adicionarTemas(["Vendas"], "vendas, VENDAS, dados").temas).toEqual(["Vendas", "dados"]);
+  });
+  it("caps at 3 and flags overflow", () => {
+    expect(adicionarTemas(["a"], "b, c, d")).toEqual({ temas: ["a", "b", "c"], excedeu: true });
+    expect(adicionarTemas([], "a, b, c").excedeu).toBe(false);
+  });
+  it("ignores empty text", () => {
+    expect(adicionarTemas(["a"], " , ;\n ")).toEqual({ temas: ["a"], excedeu: false });
   });
 });

@@ -19,10 +19,13 @@ import {
 import { toast } from "sonner";
 import { dispararWebhookMake } from "@/lib/webhook.functions";
 import { useServerFn } from "@tanstack/react-start";
-import { Check, X, Pencil, RefreshCw, Sparkles, Filter } from "lucide-react";
+import { z } from "zod";
+import { fallback, zodValidator } from "@tanstack/zod-adapter";
+import { Check, Loader2, X, Pencil, RefreshCw, Sparkles, Filter } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/posts")({
   head: () => pageMeta("Posts — Carreiras", "Revise, edite e agende seus posts de personal branding no Carreiras."),
+  validateSearch: zodValidator(z.object({ gerando: fallback(z.string(), "").optional() })),
   component: PostsPage,
 });
 
@@ -49,6 +52,10 @@ const FILTROS = ["todos", "pendente_revisao", "aprovado", "aprovado_editado", "r
 
 function PostsPage() {
   const disparar = useServerFn(dispararWebhookMake);
+  const { gerando } = Route.useSearch();
+  const [esperando, setEsperando] = useState(gerando === "1");
+  const [demorou, setDemorou] = useState(false);
+  const idsIniciais = useRef<Set<string> | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [semPdf, setSemPdf] = useState(false);
@@ -74,6 +81,7 @@ function PostsPage() {
       .eq("user_id", u.user.id)
       .order("created_at", { ascending: false });
     setPosts((data ?? []) as Post[]);
+    if (!idsIniciais.current) idsIniciais.current = new Set((data ?? []).map((p) => p.id));
     setLoading(false);
   }
 
@@ -111,6 +119,17 @@ function PostsPage() {
       window.clearInterval(interval);
     };
   }, []);
+
+  useEffect(() => {
+    if (!esperando || !idsIniciais.current) return;
+    if (posts.some((p) => !idsIniciais.current!.has(p.id))) setEsperando(false);
+  }, [posts, esperando]);
+
+  useEffect(() => {
+    if (!esperando) return;
+    const t = window.setTimeout(() => { setEsperando(false); setDemorou(true); }, 120_000);
+    return () => window.clearTimeout(t);
+  }, [esperando]);
 
   const filtrados = filtro === "todos" ? posts : posts.filter((p) => p.status === filtro);
 
@@ -181,6 +200,11 @@ function PostsPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6 md:p-10">
+      {esperando && <div role="status" className="flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm">
+        <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-primary" />
+        <span>Gerando seus posts... pode levar até 1 minuto. A lista atualiza sozinha.</span>
+      </div>}
+      {demorou && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">Demorou mais que o normal. Tente de novo em instantes.</div>}
       <div>
         <h1 className="font-display text-3xl font-semibold">Seus posts</h1>
         <p className="text-sm text-muted-foreground">Revise, edite e agende cada peça.</p>
