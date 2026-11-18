@@ -9,3 +9,9 @@
 - [x] Add optional other experiences and keep mobile controls reachable.
 - [x] Extract LinkedIn PDF locally, save text, and show conditional posts reminder.
 - [x] Test limits and merges; verify authenticated restart, mobile clicks and local PDF extraction without changing the user's saved answers.
+
+# LinkedIn material and generation cadence
+- [x] Parse Portuguese/English PDFs into editable profile fields and collapse full text.
+- [x] Add optional local PDF or reference link before onboarding questions.
+- [x] Share saved cadence controls on diagnosis/posts and save before generation.
+- [x] Run unit tests and authenticated mobile flow checks (PDF upload and cadence readback; no external generation requested).

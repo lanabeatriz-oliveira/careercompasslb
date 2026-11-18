@@ -23,6 +23,9 @@ import { z } from "zod";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { Check, Loader2, X, Pencil, RefreshCw, Sparkles, Filter } from "lucide-react";
 
+import { useCadencia } from "@/hooks/use-cadencia";
+import { CadenciaSelector } from "@/components/cadencia-selector";
+
 export const Route = createFileRoute("/_authenticated/posts")({
   head: () => pageMeta("Posts — Carreiras", "Revise, edite e agende seus posts de personal branding no Carreiras."),
   validateSearch: zodValidator(z.object({ gerando: fallback(z.string(), "").optional() })),
@@ -51,6 +54,8 @@ const STATUS_LABEL: Record<Post["status"], string> = {
 const FILTROS = ["todos", "pendente_revisao", "aprovado", "aprovado_editado", "rejeitado"] as const;
 
 function PostsPage() {
+  const cadence = useCadencia();
+  const [solicitandoPosts, setSolicitandoPosts] = useState(false);
   const disparar = useServerFn(dispararWebhookMake);
   const { gerando } = Route.useSearch();
   const [esperando, setEsperando] = useState(gerando === "1");
@@ -121,8 +126,9 @@ function PostsPage() {
   }, []);
 
   useEffect(() => {
-    if (!esperando || !idsIniciais.current) return;
-    if (posts.some((p) => !idsIniciais.current!.has(p.id))) setEsperando(false);
+    const baseline = idsIniciais.current;
+    if (!esperando || !baseline) return;
+    if (posts.some((p) => !baseline.has(p.id))) setEsperando(false);
   }, [posts, esperando]);
 
   useEffect(() => {
@@ -182,6 +188,25 @@ function PostsPage() {
     setMotivo("");
   }
 
+  async function gerarPosts() {
+    if (solicitandoPosts || esperando) return;
+    setSolicitandoPosts(true);
+    try {
+      await cadence.persist();
+      idsIniciais.current = new Set(posts.map((post) => post.id));
+      setDemorou(false);
+      setEsperando(true);
+      const r = await disparar({ data: { evento: "gerar_posts", payload: {} } });
+      if (!r.ok) {
+        setEsperando(false);
+        toast.error(r.motivo === "webhook_nao_configurado" ? "A integração com o Make.com ainda não está configurada." : "Não conseguimos solicitar os posts. Tente novamente.");
+      }
+    } catch {
+      setEsperando(false);
+      toast.error("Não conseguimos salvar a cadência ou gerar posts. Tente novamente.");
+    } finally { setSolicitandoPosts(false); }
+  }
+
   async function confirmarRegenerar() {
     if (!regenerandoId) return;
     const r = await disparar({
@@ -208,6 +233,11 @@ function PostsPage() {
       <div>
         <h1 className="font-display text-3xl font-semibold">Seus posts</h1>
         <p className="text-sm text-muted-foreground">Revise, edite e agende cada peça.</p>
+      </div>
+
+      <div className="flex min-w-0 flex-wrap items-start gap-2">
+        <CadenciaSelector cadencia={cadence.cadencia} quantidade={cadence.quantidade} disabled={cadence.loading || cadence.error || esperando || solicitandoPosts} onChange={cadence.change} />
+        <Button onClick={gerarPosts} disabled={loading || cadence.loading || cadence.error || !cadence.valid || esperando || solicitandoPosts}><Sparkles className="mr-2 h-4 w-4" />{solicitandoPosts ? "Enviando..." : "Gerar posts"}</Button>
       </div>
 
       {semPdf && <div className="border-l-2 border-primary pl-3 text-sm text-muted-foreground">

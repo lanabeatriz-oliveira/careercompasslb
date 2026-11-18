@@ -8,6 +8,11 @@ export function shouldRedirectOnboarding(completed: boolean, refazer?: string) {
   return completed && refazer !== "1";
 }
 export type OnboardingAnswers = {
+  linkedin_url?: string;
+  linkedin_pdf?: string;
+  linkedin_headline?: string;
+  linkedin_resumo?: string;
+  linkedin_experiencias?: string;
   cargo?: string;
   setor?: string;
   conquista?: string;
@@ -19,7 +24,7 @@ export type OnboardingAnswers = {
 export function savedAnswers(value: Json): OnboardingAnswers {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const result: OnboardingAnswers = {};
-  for (const key of ["cargo", "setor", "conquista", "diferencial", "outras_experiencias", "tom"] as const) {
+  for (const key of ["cargo", "setor", "conquista", "diferencial", "outras_experiencias", "tom", "linkedin_url", "linkedin_pdf", "linkedin_headline", "linkedin_resumo", "linkedin_experiencias"] as const) {
     if (typeof value[key] === "string") result[key] = value[key];
   }
   if (Array.isArray(value.temas)) result.temas = value.temas.filter((item): item is string => typeof item === "string").slice(0, 3);
@@ -30,6 +35,12 @@ export function mergeOnboarding(previous: Json, answers: OnboardingAnswers) {
   return { ...record, ...answers };
 }
 export const MAX_TEMAS = 3;
+export function validLinkedInUrl(value: string) {
+  try {
+    const url = new URL(value.trim());
+    return (url.protocol === "https:" || url.protocol === "http:") && (url.hostname === "linkedin.com" || url.hostname.endsWith(".linkedin.com")) && /^\/in\/.+/.test(url.pathname);
+  } catch { return false; }
+}
 /** Splits typed themes by comma/semicolon/newline, dedupes case-insensitively and caps at 3. */
 export function adicionarTemas(atuais: string[], texto: string) {
   const temas = [...atuais];

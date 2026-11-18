@@ -16,3 +16,5 @@
 - Use the shared page metadata helper in each content route so page-specific social titles and descriptions remain complete.
 - Validate onboarding restart search state with the Zod adapter and merge edited answers into the latest saved JSON to preserve supplemental profile material.
 - Load PDF.js and its Vite worker URL dynamically only from a browser upload event; persist extracted text, never upload the PDF file.
+- Share the pure LinkedIn section parser across upload screens so extracted fields use identical conservative heuristics.
+- Share cadence controls and serialize configuration writes, awaiting a verified user-scoped update before generating posts to prevent stale counts.

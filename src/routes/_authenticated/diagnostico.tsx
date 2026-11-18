@@ -8,10 +8,13 @@ import { toast } from "sonner";
 import { dispararWebhookMake } from "@/lib/webhook.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2, RefreshCw, Sparkles, Upload, MessageSquare } from "lucide-react";
-import { extractLinkedInPdf } from "@/lib/linkedin-pdf";
+import { extractLinkedInPdf, parseLinkedInPdf } from "@/lib/linkedin-pdf";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { DIAGNOSTIC_TIMEOUT_MS, POLLING_INTERVAL_MS, mergeLinkedIn, LinkedInFieldsSchema } from "@/lib/make-integration";
+
+import { useCadencia } from "@/hooks/use-cadencia";
+import { CadenciaSelector } from "@/components/cadencia-selector";
 
 export const Route = createFileRoute("/_authenticated/diagnostico")({
   head: () => pageMeta("Diagnóstico — Carreiras", "Acompanhe a análise real do seu perfil no LinkedIn e atualize seu diagnóstico."),
@@ -34,6 +37,7 @@ type Notas = {
 
 function DiagnosticoPage() {
   const navigate = useNavigate();
+  const cadence = useCadencia();
   const disparar = useServerFn(dispararWebhookMake);
   const [notas, setNotas] = useState<Notas | null>(null);
   const [loading, setLoading] = useState(true);
@@ -184,7 +188,10 @@ function DiagnosticoPage() {
   }
 
   async function gerarPosts() {
+    if (gerando) return;
     setGerando(true);
+    try {
+    await cadence.persist();
     const r = await disparar({ data: { evento: "gerar_posts", payload: {} } });
     setGerando(false);
     if (r.ok) {
@@ -196,6 +203,8 @@ function DiagnosticoPage() {
     } else {
       toast.error("Não conseguimos disparar a geração. Tente novamente.");
     }
+    } catch { toast.error("Não conseguimos salvar a cadência ou gerar posts. Tente novamente."); }
+    finally { setGerando(false); }
   }
 
   if (loading) return <div className="p-8 text-muted-foreground">Carregando...</div>;
@@ -232,10 +241,12 @@ function DiagnosticoPage() {
           <RefreshCw className="mr-2 h-4 w-4" />
           {atualizando ? "Gerando..." : "Atualizar diagnóstico"}
         </Button>}
-        {notas && <Button onClick={gerarPosts} disabled={gerando} size="lg">
+        {notas && <div className="flex min-w-0 flex-wrap items-start gap-2">
+        <CadenciaSelector cadencia={cadence.cadencia} quantidade={cadence.quantidade} disabled={cadence.loading || cadence.error || gerando} onChange={cadence.change} />
+        <Button onClick={gerarPosts} disabled={gerando || cadence.loading || cadence.error || !cadence.valid} size="lg">
           <Sparkles className="mr-2 h-4 w-4" />
           {gerando ? "Enviando..." : "Gerar posts"}
-        </Button>}
+        </Button></div>}
         </div>
       </div>
 
@@ -299,8 +310,9 @@ function DiagnosticoPage() {
               try {
                 const text = await extractLinkedInPdf(file);
                 if (mounted.current) {
-                  setCampos((previous) => ({ ...previous, linkedin_pdf: text }));
-                  toast.success("Texto extraído. Confira antes de salvar.");
+                  const parsed = parseLinkedInPdf(text);
+                  setCampos((previous) => ({ ...previous, linkedin_pdf: text, linkedin_headline: parsed.headline, linkedin_resumo: parsed.resumo, linkedin_experiencias: parsed.experiencias }));
+                  toast.success(`Preenchemos ${Object.values(parsed).filter(Boolean).length} de 3 campos. Confira e corrija se precisar.`);
                 }
               } catch (error) {
                 if (mounted.current) setPdfErro(error instanceof Error && /PDF|pdf/.test(error.message)
@@ -313,11 +325,12 @@ function DiagnosticoPage() {
             <p className="text-xs text-muted-foreground">No LinkedIn: seu perfil → Mais → Salvar como PDF</p>
             {pdfErro && <p role="alert" className="text-sm text-destructive">{pdfErro}</p>}
           </div>
-          <div className="space-y-1.5">
+          <details className="space-y-2">
+            <summary className="cursor-pointer text-sm font-medium">Ver texto completo do PDF</summary>
             <Label htmlFor="linkedin_pdf">Texto do PDF do LinkedIn</Label>
             <Textarea id="linkedin_pdf" maxLength={12000} rows={6} value={campos.linkedin_pdf}
               onChange={(event) => setCampos((previous) => ({ ...previous, linkedin_pdf: event.target.value }))} />
-          </div>
+          </details>
           {([
             ["linkedin_headline", "Headline atual"],
             ["linkedin_resumo", "Resumo (Sobre)"],

@@ -9,8 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { dispararWebhookMake } from "@/lib/webhook.functions";
 import { useServerFn } from "@tanstack/react-start";
-import { Send, X } from "lucide-react";
-import { adicionarTemas, MAX_TEMAS, mergeOnboarding, onboardingSearch, savedAnswers, shouldRedirectOnboarding, type OnboardingAnswers } from "@/lib/onboarding";
+import { Send, Upload, X } from "lucide-react";
+import { adicionarTemas, MAX_TEMAS, mergeOnboarding, onboardingSearch, savedAnswers, shouldRedirectOnboarding, validLinkedInUrl, type OnboardingAnswers } from "@/lib/onboarding";
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
   head: () => pageMeta("Onboarding — Carreiras", "Compartilhe seus objetivos profissionais para personalizar seu diagnóstico e conteúdo."),
@@ -18,7 +18,10 @@ export const Route = createFileRoute("/_authenticated/onboarding")({
   component: OnboardingChat,
 });
 
+import { extractLinkedInPdf, parseLinkedInPdf } from "@/lib/linkedin-pdf";
+
 type Etapa =
+  | "linkedin"
   | "cargo"
   | "setor"
   | "conquista"
@@ -34,6 +37,7 @@ type Respostas = OnboardingAnswers;
 type Msg = { autor: "bot" | "user"; texto: string };
 
 const PERGUNTAS: Record<Exclude<Etapa, "finalizado" | "tom_outro">, string> = {
+  linkedin: "Para começar: envie o PDF do seu LinkedIn (no LinkedIn: seu perfil → Mais → Salvar como PDF) ou cole o link do seu perfil. Isso deixa seu diagnóstico e seus posts muito mais precisos.",
   cargo: "Vamos começar. Qual é o cargo-alvo que você está buscando?",
   setor: "Ótimo! E qual setor ou indústria mais te interessa?",
   conquista:
@@ -55,12 +59,15 @@ function OnboardingChat() {
   const navigate = useNavigate();
   const { refazer } = Route.useSearch();
   const disparar = useServerFn(dispararWebhookMake);
-  const [etapa, setEtapa] = useState<Etapa>("cargo");
+  const [etapa, setEtapa] = useState<Etapa>("linkedin");
   const [respostas, setRespostas] = useState<Respostas>({});
   const [mensagens, setMensagens] = useState<Msg[]>([
     { autor: "bot", texto: "Oi! Vou te fazer algumas perguntinhas rápidas para personalizar seu conteúdo." },
-    { autor: "bot", texto: PERGUNTAS.cargo },
+    { autor: "bot", texto: PERGUNTAS.linkedin },
   ]);
+  const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [extraindo, setExtraindo] = useState(false);
+  const pdfInput = useRef<HTMLInputElement>(null);
   const [entrada, setEntrada] = useState("");
   const [temas, setTemas] = useState<string[]>([]);
   const [entradaTema, setEntradaTema] = useState("");
@@ -96,6 +103,10 @@ function OnboardingChat() {
         setRespostas(saved);
         setEntrada(saved.cargo ?? "");
         setTemas(saved.temas ?? []);
+        if (saved.linkedin_pdf?.trim() || saved.linkedin_url?.trim()) {
+          setEtapa("cargo");
+          setMensagens([{ autor: "bot", texto: PERGUNTAS.cargo }]);
+        }
       }
       } catch {
         if (active) { setErroCarga(true); toast.error("Não conseguimos carregar suas respostas. Reabra o onboarding para tentar novamente."); }
@@ -106,6 +117,26 @@ function OnboardingChat() {
 
   function addMsg(autor: "bot" | "user", texto: string) {
     setMensagens((m) => [...m, { autor, texto }]);
+  }
+
+  function iniciarCargo() {
+    setEtapa("cargo");
+    setEntrada(respostas.cargo ?? "");
+    addMsg("bot", PERGUNTAS.cargo);
+  }
+
+  async function enviarPdf(file: File) {
+    setExtraindo(true);
+    try {
+      const text = await extractLinkedInPdf(file);
+      const parsed = parseLinkedInPdf(text);
+      setRespostas((previous) => ({ ...previous, linkedin_pdf: text, linkedin_headline: parsed.headline, linkedin_resumo: parsed.resumo, linkedin_experiencias: parsed.experiencias }));
+      addMsg("user", "Enviei meu PDF do LinkedIn.");
+      addMsg("bot", "Li seu PDF e já preenchi seu perfil.");
+      iniciarCargo();
+    } catch (error) {
+      toast.error(error instanceof Error && /PDF|pdf/.test(error.message) ? error.message : "Não conseguimos ler este PDF. Confira se ele não está protegido por senha.");
+    } finally { setExtraindo(false); }
   }
 
   function proximaEtapa(atual: Etapa): Etapa {
@@ -263,6 +294,26 @@ function OnboardingChat() {
 
       <div className="relative z-10 mt-4 shrink-0 pointer-events-auto">
         {carregando ? <p role="status" className="text-sm text-muted-foreground">Carregando suas respostas...</p> : erroCarga ? <p role="alert" className="text-sm text-destructive">Não conseguimos carregar suas respostas. Reabra esta página para tentar novamente.</p> : <>
+        {etapa === "linkedin" && <div className="space-y-2">
+          <input ref={pdfInput} type="file" accept=".pdf,application/pdf" aria-label="PDF do LinkedIn" className="hidden" onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (file && !extraindo) void enviarPdf(file);
+          }} />
+          <Button variant="outline" disabled={extraindo} onClick={() => pdfInput.current?.click()}><Upload className="mr-2 h-4 w-4" />{extraindo ? "Lendo PDF..." : "Enviar PDF do LinkedIn"}</Button>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+            <Input aria-label="Link do perfil LinkedIn" placeholder="https://www.linkedin.com/in/..." value={linkedinUrl} disabled={extraindo} onChange={(event) => setLinkedinUrl(event.target.value)} />
+            <Button variant="outline" disabled={extraindo || !linkedinUrl.trim()} onClick={() => {
+              if (!validLinkedInUrl(linkedinUrl)) { toast.error("Cole um link válido do seu perfil com linkedin.com/in/."); return; }
+              setRespostas((previous) => ({ ...previous, linkedin_url: linkedinUrl.trim() }));
+              addMsg("user", linkedinUrl.trim());
+              addMsg("bot", "Por enquanto usamos o link apenas como referência; o PDF dá resultados bem melhores.");
+              iniciarCargo();
+            }}>Usar link</Button>
+          </div>
+          <p className="text-xs text-muted-foreground">Por enquanto usamos o link apenas como referência; o PDF dá resultados bem melhores.</p>
+          <Button variant="ghost" disabled={extraindo} onClick={() => { addMsg("user", "Pular"); iniciarCargo(); }}>Pular</Button>
+        </div>}
         {etapa === "tom" && (
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {TONS.map((t) => (
